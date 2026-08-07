@@ -2,12 +2,13 @@ import cv2
 import numpy as np
 
 
-def find_best_landing_site(
+def prepare_landing_maps(
     hazard_mask,
     safety_margin=10,
     border_margin=25
 ):
-    # Expand hazards so we do not land too close to them
+    # Expand hazards so the lander does not select
+    # a point immediately next to an obstacle.
     size = safety_margin * 2 + 1
     kernel = np.ones((size, size), np.uint8)
 
@@ -17,28 +18,149 @@ def find_best_landing_site(
         iterations=1
     )
 
-    # Image borders are also unsafe
+    # Image borders are unsafe because we cannot
+    # evaluate terrain outside the image.
     expanded_hazards[:border_margin, :] = 255
     expanded_hazards[-border_margin:, :] = 255
     expanded_hazards[:, :border_margin] = 255
     expanded_hazards[:, -border_margin:] = 255
 
-    # White = safe, black = hazard
+    # distanceTransform expects non-zero pixels
+    # to represent the area in which distances are measured.
     safe_mask = cv2.bitwise_not(expanded_hazards)
 
-    # Distance from every safe pixel to nearest hazard
-    distance = cv2.distanceTransform(
+    distance_map = cv2.distanceTransform(
         safe_mask,
         cv2.DIST_L2,
         5
     )
 
-    _, max_distance, _, best_point = cv2.minMaxLoc(distance)
+    return expanded_hazards, safe_mask, distance_map
+
+
+def calculate_site_score(
+    point,
+    clearance_px,
+    expanded_hazards
+):
+    x, y = point
+    height, width = expanded_hazards.shape
+
+    # Clearance relative to image size.
+    target_clearance = min(height, width) * 0.25
+
+    clearance_score = min(
+        100.0,
+        (clearance_px / target_clearance) * 100.0
+    )
+
+    # Examine terrain around the candidate.
+    local_radius = 70
+
+    x1 = max(0, x - local_radius)
+    x2 = min(width, x + local_radius)
+    y1 = max(0, y - local_radius)
+    y2 = min(height, y + local_radius)
+
+    local_region = expanded_hazards[y1:y2, x1:x2]
+
+    if local_region.size == 0:
+        local_safety_score = 0.0
+    else:
+        hazard_fraction = np.count_nonzero(local_region) / local_region.size
+        local_safety_score = (1.0 - hazard_fraction) * 100.0
+
+    # Clearance is the most important factor.
+    score = (
+        0.75 * clearance_score
+        + 0.25 * local_safety_score
+    )
+
+    score = int(round(max(0, min(100, score))))
+
+    if score >= 80:
+        risk = "LOW"
+    elif score >= 60:
+        risk = "MODERATE"
+    else:
+        risk = "HIGH"
+
+    return score, risk
+
+
+def find_landing_candidates(
+    hazard_mask,
+    count=3,
+    safety_margin=10,
+    border_margin=25,
+    min_separation=120
+):
+    expanded_hazards, safe_mask, distance_map = prepare_landing_maps(
+        hazard_mask,
+        safety_margin=safety_margin,
+        border_margin=border_margin
+    )
+
+    # Copy because we will suppress already selected areas.
+    search_map = distance_map.copy()
+
+    candidates = []
+
+    for index in range(count):
+        _, max_distance, _, best_point = cv2.minMaxLoc(search_map)
+
+        if max_distance <= 0:
+            break
+
+        score, risk = calculate_site_score(
+            best_point,
+            max_distance,
+            expanded_hazards
+        )
+
+        candidates.append({
+            "rank": index + 1,
+            "point": best_point,
+            "clearance_px": float(max_distance),
+            "score": score,
+            "risk": risk
+        })
+
+        # Prevent the next candidate from being almost
+        # in the same location.
+        cv2.circle(
+            search_map,
+            best_point,
+            min_separation,
+            0,
+            thickness=-1
+        )
 
     return {
-        "point": best_point,
-        "clearance_px": float(max_distance),
+        "candidates": candidates,
         "expanded_hazards": expanded_hazards,
         "safe_mask": safe_mask,
-        "distance_map": distance
+        "distance_map": distance_map
+    }
+
+
+def find_best_landing_site(hazard_mask):
+    result = find_landing_candidates(
+        hazard_mask,
+        count=1
+    )
+
+    if not result["candidates"]:
+        raise RuntimeError("No safe landing site found.")
+
+    best = result["candidates"][0]
+
+    return {
+        "point": best["point"],
+        "clearance_px": best["clearance_px"],
+        "score": best["score"],
+        "risk": best["risk"],
+        "expanded_hazards": result["expanded_hazards"],
+        "safe_mask": result["safe_mask"],
+        "distance_map": result["distance_map"]
     }
