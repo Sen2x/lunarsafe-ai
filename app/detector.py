@@ -10,30 +10,36 @@ def detect_hazards(image_path: str):
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
 
-    edges = cv2.Canny(blurred, 60, 140)
+    edges = cv2.Canny(blurred, 80, 180)
 
-    kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((3, 3), np.uint8)
 
-    hazard_mask = cv2.dilate(
+    edges = cv2.morphologyEx(
         edges,
+        cv2.MORPH_CLOSE,
         kernel,
-        iterations=2
+        iterations=1
     )
 
     contours, _ = cv2.findContours(
-        hazard_mask,
+        edges,
         cv2.RETR_EXTERNAL,
         cv2.CHAIN_APPROX_SIMPLE
     )
+
+    image_area = gray.shape[0] * gray.shape[1]
+
+    min_area = 100
+    max_area = image_area * 0.04
 
     filtered_contours = []
 
     for contour in contours:
         area = cv2.contourArea(contour)
 
-        if area >= 80:
+        if min_area <= area <= max_area:
             filtered_contours.append(contour)
 
     clean_mask = np.zeros_like(gray)
