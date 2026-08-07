@@ -4,7 +4,7 @@ import numpy as np
 
 def find_best_landing_site(
     hazard_mask,
-    safety_margin=15,
+    safety_margin=10,
     border_margin=25
 ):
     # Expand hazards so we do not land too close to them
