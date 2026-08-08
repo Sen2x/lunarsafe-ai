@@ -231,8 +231,9 @@ async def analyze(
             "hazard_regions": len(contours),
             "mission_parameters": {
                 "craft_size": craft_size,
+                "craft_radius_px": craft_radius,
                 "safety_margin": safety_margin,
-                "effective_safety_margin_px": effective_safety_margin
+                "safety_margin_px": safety_margin_px
             },
             "best_site": best_site,
             "landing_candidates": candidates_json,
