@@ -92,6 +92,7 @@ def find_landing_candidates(
     hazard_mask,
     count=3,
     safety_margin=10,
+    craft_radius=30,
     border_margin=25,
     min_separation=120
 ):
@@ -103,6 +104,10 @@ def find_landing_candidates(
 
     # Copy because we will suppress already selected areas.
     search_map = distance_map.copy()
+
+    # A landing craft can only be centered where the entire
+    # craft footprint fits inside the safe region.
+    search_map[distance_map < craft_radius] = 0
 
     candidates = []
 

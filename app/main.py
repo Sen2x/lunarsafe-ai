@@ -51,19 +51,19 @@ async def analyze(
     craft_size = craft_size.lower()
     safety_margin = safety_margin.lower()
 
-    craft_margins = {
-        "small": 0,
-        "medium": 10,
-        "large": 25
+    craft_radii = {
+        "small": 18,
+        "medium": 30,
+        "large": 45
     }
 
     safety_margins = {
-        "low": 0,
-        "standard": 4,
-        "high": 10
+        "low": 5,
+        "standard": 10,
+        "high": 20
     }
 
-    if craft_size not in craft_margins:
+    if craft_size not in craft_radii:
         raise HTTPException(
             status_code=400,
             detail="Invalid craft_size."
@@ -75,10 +75,8 @@ async def analyze(
             detail="Invalid safety_margin."
         )
 
-    effective_safety_margin = (
-        craft_margins[craft_size]
-        + safety_margins[safety_margin]
-    )
+    craft_radius = craft_radii[craft_size]
+    safety_margin_px = safety_margins[safety_margin]
 
     if file.content_type not in {
         "image/jpeg",
@@ -122,14 +120,15 @@ async def analyze(
         analysis = find_landing_candidates(
             hazard_mask,
             count=3,
-            safety_margin=effective_safety_margin
+            safety_margin=safety_margin_px,
+            craft_radius=craft_radius
         )
 
         visualization = image.copy()
 
         # Semi-transparent red hazard overlay.
         hazard_pixels = (
-            hazard_mask > 0
+            analysis["expanded_hazards"] > 0
         )
 
         red_layer = visualization.copy()
@@ -199,6 +198,7 @@ async def analyze(
                     candidate["clearance_px"],
                     2
                 ),
+                "craft_radius_px": craft_radius,
                 "score": candidate["score"],
                 "risk": candidate["risk"]
             })
