@@ -129,7 +129,7 @@ async def analyze(
 
         # Semi-transparent red hazard overlay.
         hazard_pixels = (
-            analysis["expanded_hazards"] > 0
+            hazard_mask > 0
         )
 
         red_layer = visualization.copy()
