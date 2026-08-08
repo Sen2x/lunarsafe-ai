@@ -52,9 +52,9 @@ async def analyze(
     safety_margin = safety_margin.lower()
 
     craft_margins = {
-        "small": 2,
-        "medium": 5,
-        "large": 10
+        "small": 0,
+        "medium": 10,
+        "large": 25
     }
 
     safety_margins = {
