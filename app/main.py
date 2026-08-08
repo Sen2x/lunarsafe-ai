@@ -3,7 +3,7 @@ import os
 import tempfile
 
 import cv2
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.detector import detect_hazards
@@ -43,7 +43,43 @@ def health():
 
 
 @app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
+async def analyze(
+    file: UploadFile = File(...),
+    craft_size: str = Form("medium"),
+    safety_margin: str = Form("standard")
+):
+    craft_size = craft_size.lower()
+    safety_margin = safety_margin.lower()
+
+    craft_margins = {
+        "small": 2,
+        "medium": 5,
+        "large": 10
+    }
+
+    safety_margins = {
+        "low": 0,
+        "standard": 4,
+        "high": 10
+    }
+
+    if craft_size not in craft_margins:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid craft_size."
+        )
+
+    if safety_margin not in safety_margins:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid safety_margin."
+        )
+
+    effective_safety_margin = (
+        craft_margins[craft_size]
+        + safety_margins[safety_margin]
+    )
+
     if file.content_type not in {
         "image/jpeg",
         "image/png",
@@ -85,7 +121,8 @@ async def analyze(file: UploadFile = File(...)):
 
         analysis = find_landing_candidates(
             hazard_mask,
-            count=3
+            count=3,
+            safety_margin=effective_safety_margin
         )
 
         visualization = image.copy()
@@ -192,6 +229,11 @@ async def analyze(file: UploadFile = File(...)):
             "image_width": int(image.shape[1]),
             "image_height": int(image.shape[0]),
             "hazard_regions": len(contours),
+            "mission_parameters": {
+                "craft_size": craft_size,
+                "safety_margin": safety_margin,
+                "effective_safety_margin_px": effective_safety_margin
+            },
             "best_site": best_site,
             "landing_candidates": candidates_json,
             "annotated_image": (
