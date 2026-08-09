@@ -88,6 +88,133 @@ def detect_hazards(image_path: str):
     )
 
 
+    # 2b. Fine-scale terrain-detail signal
+    # Keeps smaller visual structures that can be weakened
+    # by the main 5x5 smoothing branch.
+    fine_blurred = cv2.GaussianBlur(
+        normalized,
+        (3, 3),
+        0
+    )
+
+    fine_sobel_x = cv2.Sobel(
+        fine_blurred,
+        cv2.CV_32F,
+        1,
+        0,
+        ksize=3
+    )
+
+    fine_sobel_y = cv2.Sobel(
+        fine_blurred,
+        cv2.CV_32F,
+        0,
+        1,
+        ksize=3
+    )
+
+    fine_gradient_magnitude = cv2.magnitude(
+        fine_sobel_x,
+        fine_sobel_y
+    )
+
+    fine_gradient_map = cv2.normalize(
+        fine_gradient_magnitude,
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX
+    ).astype(np.uint8)
+
+
+    # Build a conservative mask for compact small-scale
+    # terrain features.
+    #
+    # This does not classify them as craters. It only preserves
+    # small, strong, compact visual structures as potential hazards.
+    _, fine_edge_mask = cv2.threshold(
+        fine_gradient_map,
+        150,
+        255,
+        cv2.THRESH_BINARY
+    )
+
+    fine_close_kernel = np.ones(
+        (3, 3),
+        np.uint8
+    )
+
+    # Join very small gaps in compact edge structures.
+    fine_edge_mask = cv2.morphologyEx(
+        fine_edge_mask,
+        cv2.MORPH_CLOSE,
+        fine_close_kernel,
+        iterations=1
+    )
+
+    fine_contours, _ = cv2.findContours(
+        fine_edge_mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    compact_feature_mask = np.zeros_like(gray)
+
+    min_compact_area = max(
+        12,
+        image_area * 0.000012
+    )
+
+    max_compact_area = max(
+        80,
+        image_area * 0.0004
+    )
+
+    for contour in fine_contours:
+        area = cv2.contourArea(contour)
+
+        if (
+            area < min_compact_area
+            or area > max_compact_area
+        ):
+            continue
+
+        perimeter = cv2.arcLength(
+            contour,
+            True
+        )
+
+        if perimeter <= 0:
+            continue
+
+        circularity = (
+            4.0
+            * np.pi
+            * area
+            / (perimeter * perimeter)
+        )
+
+        x, y, w, h = cv2.boundingRect(contour)
+
+        if h <= 0:
+            continue
+
+        aspect_ratio = w / float(h)
+
+        # Keep reasonably compact structures while rejecting
+        # long thin terrain edges and most isolated texture noise.
+        if (
+            circularity >= 0.45
+            and 0.60 <= aspect_ratio <= 1.67
+        ):
+            cv2.drawContours(
+                compact_feature_mask,
+                [contour],
+                -1,
+                255,
+                thickness=cv2.FILLED
+            )
+
 
     # 3. Local visual texture signal
 
@@ -240,7 +367,8 @@ def detect_hazards(image_path: str):
         shadow_mask
     )
 
-    # Remove tiny isolated noise.
+    # Clean the main hazard mask before adding compact
+    # fine-scale features.
     cleanup_kernel = np.ones(
         (3, 3),
         np.uint8
@@ -253,11 +381,31 @@ def detect_hazards(image_path: str):
         iterations=1
     )
 
-    # Close very small gaps inside nearby risk structures.
     hazard_mask = cv2.morphologyEx(
         hazard_mask,
         cv2.MORPH_CLOSE,
         cleanup_kernel,
+        iterations=1
+    )
+
+    # Add compact fine-scale potential hazards AFTER the
+    # global noise-removal step so very small selected
+    # structures are not removed again.
+    hazard_mask = cv2.bitwise_or(
+        hazard_mask,
+        compact_feature_mask
+    )
+
+    # Only close tiny gaps after merging compact features.
+    compact_merge_kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (3, 3)
+    )
+
+    hazard_mask = cv2.morphologyEx(
+        hazard_mask,
+        cv2.MORPH_CLOSE,
+        compact_merge_kernel,
         iterations=1
     )
 
