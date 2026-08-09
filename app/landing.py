@@ -47,39 +47,36 @@ def calculate_site_score(
     x, y = point
     height, width = expanded_hazards.shape
 
-    # The craft must have at least one craft radius
-    # of clearance from the expanded hazard boundary.
+    # Minimum clearance required for the craft footprint.
     minimum_clearance = float(craft_radius)
 
-    # A clearance of three craft radii is treated as
-    # a strong safety margin for this prototype.
-    target_clearance = float(craft_radius) * 3.0
-
-    # Score only the EXTRA clearance beyond the minimum
-    # required for the craft footprint to fit.
-    clearance_range = (
-        target_clearance
-        - minimum_clearance
-    )
-
+    # Additional clearance beyond the minimum required.
     extra_clearance = max(
         0.0,
         clearance_px - minimum_clearance
     )
 
-    if clearance_range <= 0:
-        clearance_score = 0.0
-    else:
-        clearance_score = min(
-            100.0,
-            (
-                extra_clearance
-                / clearance_range
-            ) * 100.0
+    # Soft saturation prevents large clear areas from all
+    # receiving exactly 100/100.
+    clearance_scale = max(
+        1.0,
+        float(craft_radius)
+    )
+
+    clearance_score = (
+        100.0
+        * extra_clearance
+        / (
+            extra_clearance
+            + clearance_scale
         )
+    )
 
     # Examine terrain around the candidate.
-    local_radius = 70
+    local_radius = max(
+        10,
+        int(round(min(height, width) * 0.07))
+    )
 
     x1 = max(0, x - local_radius)
     x2 = min(width, x + local_radius)
@@ -133,9 +130,24 @@ def find_landing_candidates(
     count=3,
     safety_margin=10,
     craft_radius=30,
-    border_margin=25,
-    min_separation=120
+    border_margin=None,
+    min_separation=None
 ):
+    height, width = hazard_mask.shape
+    min_dimension = min(height, width)
+
+    if border_margin is None:
+        border_margin = max(
+            5,
+            int(round(min_dimension * 0.025))
+        )
+
+    if min_separation is None:
+        min_separation = max(
+            20,
+            int(round(min_dimension * 0.12))
+        )
+
     expanded_hazards, safe_mask, distance_map = prepare_landing_maps(
         hazard_mask,
         safety_margin=safety_margin,
@@ -158,11 +170,11 @@ def find_landing_candidates(
             break
 
         score, risk = calculate_site_score(
-    best_point,
-    max_distance,
-    expanded_hazards,
-    craft_radius
-)
+            best_point,
+            max_distance,
+            expanded_hazards,
+            craft_radius
+        )
 
         candidates.append({
             "rank": index + 1,
