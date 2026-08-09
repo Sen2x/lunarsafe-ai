@@ -73,7 +73,10 @@ def calculate_site_score(
     )
 
     # Examine terrain around the candidate.
-    local_radius = 70
+    local_radius = max(
+        10,
+        int(round(min(height, width) * 0.07))
+    )
 
     x1 = max(0, x - local_radius)
     x2 = min(width, x + local_radius)
