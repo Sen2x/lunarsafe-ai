@@ -203,14 +203,47 @@ async def analyze(
                 f"{candidate['score']}/100"
             )
 
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.6
+            font_thickness = 2
+
+            (text_width, text_height), _ = cv2.getTextSize(
+                label,
+                font,
+                font_scale,
+                font_thickness
+            )
+
+            text_x = x + 18
+            text_y = max(
+                text_height + 5,
+                y - 15
+            )
+
+            # If the label would leave the image on the right,
+            # draw it to the left of the landing marker instead.
+            if (
+                text_x + text_width
+                > visualization.shape[1] - 5
+            ):
+                text_x = max(
+                    5,
+                    x - text_width - 18
+                )
+
+            text_y = min(
+                visualization.shape[0] - 5,
+                text_y
+            )
+
             cv2.putText(
                 visualization,
                 label,
-                (x + 18, y - 15),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
+                (text_x, text_y),
+                font,
+                font_scale,
                 color,
-                2
+                font_thickness
             )
 
             candidates_json.append({
