@@ -10,9 +10,9 @@ def detect_hazards(image_path: str):
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # ---------------------------------------------------------
+
     # 1. Improve local contrast before terrain analysis
-    # ---------------------------------------------------------
+
 
     clahe = cv2.createCLAHE(
         clipLimit=2.0,
@@ -27,9 +27,9 @@ def detect_hazards(image_path: str):
         0
     )
 
-    # ---------------------------------------------------------
+
     # 2. Gradient / terrain-boundary signal
-    # ---------------------------------------------------------
+
 
     image_area = gray.shape[0] * gray.shape[1]
 
@@ -87,12 +87,10 @@ def detect_hazards(image_path: str):
         iterations=1
     )
 
-    # We no longer fill every detected contour.
-    # Strong boundaries are only one hazard signal.
-    hazard_mask = gradient_mask.copy()
-        # ---------------------------------------------------------
+
+
     # 3. Local visual texture signal
-    # ---------------------------------------------------------
+
 
     # Convert to float so variance calculations are accurate.
     gray_float = normalized.astype(np.float32)
@@ -139,9 +137,9 @@ def detect_hazards(image_path: str):
         255,
         cv2.NORM_MINMAX
     ).astype(np.uint8)
-    # ---------------------------------------------------------
-    # 3. Detect large areas of deep shadow
-    # ---------------------------------------------------------
+
+    # 4. Detect large areas of deep shadow
+
 
     shadow_raw = cv2.inRange(
         gray,
@@ -181,14 +179,88 @@ def detect_hazards(image_path: str):
                 thickness=cv2.FILLED
             )
 
+
+    # 5. Combine visual signals into a continuous risk map
+
+
+    # Convert all signals to floating-point values from 0.0 to 1.0.
+    gradient_signal = (
+        gradient_map.astype(np.float32) / 255.0
+    )
+
+    texture_signal = (
+        texture_map.astype(np.float32) / 255.0
+    )
+
+    shadow_signal = (
+        shadow_mask.astype(np.float32) / 255.0
+    )
+
+    # Prototype engineering weights.
+    # These values are heuristic and are NOT scientific probabilities.
+    gradient_weight = 0.55
+    texture_weight = 0.30
+    shadow_weight = 0.15
+
+    risk = (
+        gradient_weight * gradient_signal
+        + texture_weight * texture_signal
+        + shadow_weight * shadow_signal
+    )
+
+    risk = np.clip(
+        risk,
+        0.0,
+        1.0
+    )
+
+    # Convert the continuous risk map back to 0-255.
+    risk_map = (
+        risk * 255.0
+    ).astype(np.uint8)
+
+
+    # 6. Convert risk map into a binary hazard mask
+
+
+    _, hazard_mask = cv2.threshold(
+        risk_map,
+        95,
+        255,
+        cv2.THRESH_BINARY
+    )
+
+    # Deep shadows are always preserved as potential hazards,
+    # even if their gradient/texture contribution is weak.
     hazard_mask = cv2.bitwise_or(
         hazard_mask,
         shadow_mask
     )
 
-    # ---------------------------------------------------------
-    # 5. Build contours from the FINAL hazard mask
-    # ---------------------------------------------------------
+    # Remove tiny isolated noise.
+    cleanup_kernel = np.ones(
+        (3, 3),
+        np.uint8
+    )
+
+    hazard_mask = cv2.morphologyEx(
+        hazard_mask,
+        cv2.MORPH_OPEN,
+        cleanup_kernel,
+        iterations=1
+    )
+
+    # Close very small gaps inside nearby risk structures.
+    hazard_mask = cv2.morphologyEx(
+        hazard_mask,
+        cv2.MORPH_CLOSE,
+        cleanup_kernel,
+        iterations=1
+    )
+
+
+    # 7. Build contours from the FINAL hazard mask
+
 
     filtered_contours, _ = cv2.findContours(
         hazard_mask,
