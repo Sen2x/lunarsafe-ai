@@ -27,6 +27,27 @@ app.add_middleware(
 )
 
 
+def encode_jpeg_data_url(image):
+    success, encoded_image = cv2.imencode(
+        ".jpg",
+        image
+    )
+
+    if not success:
+        raise RuntimeError(
+            "Could not encode result image."
+        )
+
+    image_base64 = base64.b64encode(
+        encoded_image.tobytes()
+    ).decode("utf-8")
+
+    return (
+        "data:image/jpeg;base64,"
+        + image_base64
+    )
+
+
 @app.get("/")
 def root():
     return {
@@ -148,15 +169,56 @@ async def analyze(
             craft_radius=craft_radius
         )
 
+        # Dedicated potential-hazard visualization.
+        hazard_visualization = image.copy()
+
+        hazard_pixels = (
+            hazard_mask > 0
+        )
+
+        hazard_red_layer = hazard_visualization.copy()
+        hazard_red_layer[hazard_pixels] = (0, 0, 255)
+
+        hazard_visualization = cv2.addWeighted(
+            hazard_visualization,
+            0.60,
+            hazard_red_layer,
+            0.40,
+            0
+        )
+
+        # Dedicated distance-transform visualization.
+        distance_map = analysis["distance_map"]
+
+        distance_normalized = cv2.normalize(
+            distance_map,
+            None,
+            0,
+            255,
+            cv2.NORM_MINMAX,
+            dtype=cv2.CV_8U
+        )
+
+        distance_visualization = cv2.applyColorMap(
+            distance_normalized,
+            cv2.COLORMAP_VIRIDIS
+        )
+
+        distance_visualization[
+            analysis["expanded_hazards"] > 0
+        ] = (0, 0, 0)
+
+        # Landing Zones visualization.
         visualization = image.copy()
 
-        # Semi-transparent red hazard overlay.
-        hazard_pixels = (
+        expanded_hazard_pixels = (
             analysis["expanded_hazards"] > 0
         )
 
         red_layer = visualization.copy()
-        red_layer[hazard_pixels] = (0, 0, 255)
+        red_layer[
+            expanded_hazard_pixels
+        ] = (0, 0, 255)
 
         visualization = cv2.addWeighted(
             visualization,
@@ -260,20 +322,17 @@ async def analyze(
                 "risk": candidate["risk"]
             })
 
-        # Encode annotated result image as JPEG.
-        success, encoded_image = cv2.imencode(
-            ".jpg",
-            visualization
+        hazard_map_image = encode_jpeg_data_url(
+            hazard_visualization
         )
 
-        if not success:
-            raise RuntimeError(
-                "Could not encode result image."
-            )
+        distance_map_image = encode_jpeg_data_url(
+            distance_visualization
+        )
 
-        image_base64 = base64.b64encode(
-            encoded_image.tobytes()
-        ).decode("utf-8")
+        annotated_image = encode_jpeg_data_url(
+            visualization
+        )
 
         best_site = (
             candidates_json[0]
@@ -294,10 +353,9 @@ async def analyze(
             },
             "best_site": best_site,
             "landing_candidates": candidates_json,
-            "annotated_image": (
-                "data:image/jpeg;base64,"
-                + image_base64
-            )
+            "hazard_map_image": hazard_map_image,
+            "distance_map_image": distance_map_image,
+            "annotated_image": annotated_image
         }
 
     except HTTPException:
