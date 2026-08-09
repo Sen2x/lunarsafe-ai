@@ -35,11 +35,14 @@ https://github.com/Sen2x
 
 ### DaniilsLukaMiskins
 
-**Frontend / UX / Native.builder**
+**Frontend / UX / Full-stack Integration**
 
 - frontend interface;
 - UX implementation;
-- Native.builder integration.
+- Native.builder integration;
+- frontend–backend API integration;
+- mission parameter controls and landing-zone visualization;
+- integration of craft size and safety margin into the analysis workflow.
 
 GitHub:
 
