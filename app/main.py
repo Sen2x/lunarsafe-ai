@@ -51,32 +51,30 @@ async def analyze(
     craft_size = craft_size.lower()
     safety_margin = safety_margin.lower()
 
-    craft_radii = {
-        "small": 18,
-        "medium": 30,
-        "large": 45
+    craft_radius_ratios = {
+        "small": 0.018,
+        "medium": 0.030,
+        "large": 0.045
     }
 
-    safety_margins = {
-        "low": 5,
-        "standard": 10,
-        "high": 20
+    safety_margin_ratios = {
+        "low": 0.005,
+        "standard": 0.010,
+        "high": 0.020
     }
-
-    if craft_size not in craft_radii:
+    if craft_size not in craft_radius_ratios:
         raise HTTPException(
             status_code=400,
             detail="Invalid craft_size."
         )
 
-    if safety_margin not in safety_margins:
+    if safety_margin not in safety_margin_ratios:
         raise HTTPException(
             status_code=400,
             detail="Invalid safety_margin."
         )
 
-    craft_radius = craft_radii[craft_size]
-    safety_margin_px = safety_margins[safety_margin]
+
 
     if file.content_type not in {
         "image/jpeg",
@@ -116,7 +114,33 @@ async def analyze(
         image, hazard_mask, contours = detect_hazards(
             temp_path
         )
+        # Normalize pixel-based mission parameters to image resolution.
+        # The 1000 px reference preserves the behavior of the original
+        # prototype on 1000x1000 test imagery.
+        min_dimension = min(
+            image.shape[0],
+            image.shape[1]
+        )
 
+        craft_radius = max(
+            3,
+            int(
+                round(
+                    min_dimension
+                    * craft_radius_ratios[craft_size]
+                )
+            )
+        )
+
+        safety_margin_px = max(
+            1,
+            int(
+                round(
+                    min_dimension
+                    * safety_margin_ratios[safety_margin]
+                )
+            )
+        )
         analysis = find_landing_candidates(
             hazard_mask,
             count=3,

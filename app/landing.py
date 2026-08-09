@@ -127,9 +127,24 @@ def find_landing_candidates(
     count=3,
     safety_margin=10,
     craft_radius=30,
-    border_margin=25,
-    min_separation=120
+    border_margin=None,
+    min_separation=None
 ):
+    height, width = hazard_mask.shape
+    min_dimension = min(height, width)
+
+    if border_margin is None:
+        border_margin = max(
+            5,
+            int(round(min_dimension * 0.025))
+        )
+
+    if min_separation is None:
+        min_separation = max(
+            20,
+            int(round(min_dimension * 0.12))
+        )
+
     expanded_hazards, safe_mask, distance_map = prepare_landing_maps(
         hazard_mask,
         safety_margin=safety_margin,
@@ -152,11 +167,11 @@ def find_landing_candidates(
             break
 
         score, risk = calculate_site_score(
-    best_point,
-    max_distance,
-    expanded_hazards,
-    craft_radius
-)
+            best_point,
+            max_distance,
+            expanded_hazards,
+            craft_radius
+        )
 
         candidates.append({
             "rank": index + 1,
