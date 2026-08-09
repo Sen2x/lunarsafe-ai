@@ -325,7 +325,7 @@ Production API result:
 
 ```text
 Image size:       1000 × 1000 px
-Hazard regions:   288
+Hazard regions:   297
 Craft radius:     30 px
 Safety margin:    10 px
 
@@ -337,7 +337,7 @@ Clearance:        66.77 px
 Site B
 Score:            58 / 100
 Risk:             HIGH
-Clearance:        57.14 px
+Clearance:        57.00 px
 
 Site C
 Score:            55 / 100
@@ -358,7 +358,7 @@ the image-space parameters are automatically normalized:
 
 ```text
 Image size:       474 × 296 px
-Hazard regions:   90
+Hazard regions:   92
 Craft radius:     9 px
 Safety margin:    3 px
 
