@@ -47,36 +47,30 @@ def calculate_site_score(
     x, y = point
     height, width = expanded_hazards.shape
 
-    # The craft must have at least one craft radius
-    # of clearance from the expanded hazard boundary.
+    # Minimum clearance required for the craft footprint.
     minimum_clearance = float(craft_radius)
 
-    # A clearance of three craft radii is treated as
-    # a strong safety margin for this prototype.
-    target_clearance = float(craft_radius) * 3.0
-
-    # Score only the EXTRA clearance beyond the minimum
-    # required for the craft footprint to fit.
-    clearance_range = (
-        target_clearance
-        - minimum_clearance
-    )
-
+    # Additional clearance beyond the minimum required.
     extra_clearance = max(
         0.0,
         clearance_px - minimum_clearance
     )
 
-    if clearance_range <= 0:
-        clearance_score = 0.0
-    else:
-        clearance_score = min(
-            100.0,
-            (
-                extra_clearance
-                / clearance_range
-            ) * 100.0
+    # Soft saturation prevents large clear areas from all
+    # receiving exactly 100/100.
+    clearance_scale = max(
+        1.0,
+        float(craft_radius)
+    )
+
+    clearance_score = (
+        100.0
+        * extra_clearance
+        / (
+            extra_clearance
+            + clearance_scale
         )
+    )
 
     # Examine terrain around the candidate.
     local_radius = 70
