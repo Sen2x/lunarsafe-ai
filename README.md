@@ -9,6 +9,61 @@ The project was built for the **AI Factory / Native.builder Hackathon**.
 
 ---
 
+
+## Team
+
+LunarSafe AI was developed collaboratively for the hackathon.
+
+### Sen2x
+
+**Computer Vision / Backend**
+
+- hazard-detection pipeline;
+- OpenCV terrain analysis;
+- landing-zone selection;
+- distance-transform analysis;
+- candidate scoring;
+- resolution normalization;
+- FastAPI integration;
+- Render backend deployment.
+
+GitHub:
+
+```text
+https://github.com/Sen2x
+```
+
+### DaniilsLukaMiskins
+
+**Frontend / UX / Native.builder**
+
+- frontend interface;
+- UX implementation;
+- Native.builder integration.
+
+GitHub:
+
+```text
+https://github.com/DaniilsLukaMiskins
+```
+
+### RizskajaVecna
+
+**Testing / Documentation / Demo Features**
+
+- testing;
+- documentation support;
+- demo support;
+- comparison functionality;
+- Download Analysis JSON functionality.
+
+GitHub:
+
+```text
+https://github.com/RizskajaVecna
+```
+
+---
 ## Overview
 
 Lunar landing imagery can contain strong shadows, abrupt intensity changes, complex terrain boundaries, and visually irregular regions that may make landing-site selection difficult.
@@ -724,61 +779,6 @@ The architecture can later be extended with trained segmentation or detection mo
 - **GitHub Repository:** https://github.com/Sen2x/lunarsafe-ai
 
 The published frontend and demo-video links should be added here once their final public URLs are available.
-
----
-
-## Team
-
-LunarSafe AI was developed collaboratively for the hackathon.
-
-### Sen2x
-
-**Computer Vision / Backend**
-
-- hazard-detection pipeline;
-- OpenCV terrain analysis;
-- landing-zone selection;
-- distance-transform analysis;
-- candidate scoring;
-- resolution normalization;
-- FastAPI integration;
-- Render backend deployment.
-
-GitHub:
-
-```text
-https://github.com/Sen2x
-```
-
-### DaniilsLukaMiskins
-
-**Frontend / UX / Native.builder**
-
-- frontend interface;
-- UX implementation;
-- Native.builder integration.
-
-GitHub:
-
-```text
-https://github.com/DaniilsLukaMiskins
-```
-
-### RizskajaVecna
-
-**Testing / Documentation / Demo Features**
-
-- testing;
-- documentation support;
-- demo support;
-- comparison functionality;
-- Download Analysis JSON functionality.
-
-GitHub:
-
-```text
-https://github.com/RizskajaVecna
-```
 
 ---
 
