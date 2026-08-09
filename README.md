@@ -115,10 +115,12 @@ The current detector performs:
 4. Sobel gradient analysis;
 5. local texture-variation analysis;
 6. deep-shadow detection;
-7. weighted fusion of the visual signals;
-8. creation of a continuous terrain-risk map;
-9. thresholding into a binary potential-hazard mask;
-10. morphological cleanup of the final mask.
+7. conservative fine-scale analysis for compact small terrain features;
+8. weighted fusion of the main gradient, texture, and shadow signals;
+9. creation of a continuous terrain-risk map;
+10. thresholding into a binary potential-hazard mask;
+11. morphological cleanup;
+12. conservative merging of selected compact fine-scale potential hazards.
 
 ### Signal fusion
 
@@ -135,6 +137,8 @@ These are engineering heuristic weights.
 They are **not probabilities** and are not intended to represent scientifically measured terrain risk.
 
 Deep shadows are explicitly preserved as potential hazards even when their gradient or texture contribution is relatively weak.
+
+A separate conservative fine-scale branch analyzes smaller image structures with lighter smoothing. Compact candidates are filtered by area, circularity, and aspect ratio before being merged into the final hazard mask. This branch does not change the main 55/30/15 risk weights and does not claim scientific crater classification.
 
 ### Important terminology
 
@@ -282,8 +286,11 @@ These categories are prototype decision-support labels rather than aerospace-cer
 - Sobel gradient analysis
 - Local texture analysis
 - Deep-shadow-aware hazard detection
+- Conservative compact small-feature detection
 - Continuous visual risk map
 - Potential-hazard mask
+- Dedicated backend-generated Hazard Map image
+- Dedicated OpenCV Distance Map image
 - Configurable craft size
 - Configurable safety margin
 - Resolution-aware image-space parameters
@@ -521,11 +528,19 @@ curl -X POST \
       "risk": "MODERATE"
     }
   ],
+  "hazard_map_image": "data:image/jpeg;base64,...",
+  "distance_map_image": "data:image/jpeg;base64,...",
   "annotated_image": "data:image/jpeg;base64,..."
 }
 ```
 
 The actual `landing_candidates` array can contain up to three ranked candidates.
+
+The three image outputs have different purposes:
+
+- `hazard_map_image` — original terrain with detected potential hazards highlighted;
+- `distance_map_image` — visualization of the real OpenCV distance transform;
+- `annotated_image` — Landing Zones view with expanded safety overlay and ranked Site A / B / C annotations.
 
 ---
 
