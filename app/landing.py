@@ -41,18 +41,42 @@ def prepare_landing_maps(
 def calculate_site_score(
     point,
     clearance_px,
-    expanded_hazards
+    expanded_hazards,
+    craft_radius
 ):
     x, y = point
     height, width = expanded_hazards.shape
 
-    # Clearance relative to image size.
-    target_clearance = min(height, width) * 0.25
+    # The craft must have at least one craft radius
+    # of clearance from the expanded hazard boundary.
+    minimum_clearance = float(craft_radius)
 
-    clearance_score = min(
-        100.0,
-        (clearance_px / target_clearance) * 100.0
+    # A clearance of three craft radii is treated as
+    # a strong safety margin for this prototype.
+    target_clearance = float(craft_radius) * 3.0
+
+    # Score only the EXTRA clearance beyond the minimum
+    # required for the craft footprint to fit.
+    clearance_range = (
+        target_clearance
+        - minimum_clearance
     )
+
+    extra_clearance = max(
+        0.0,
+        clearance_px - minimum_clearance
+    )
+
+    if clearance_range <= 0:
+        clearance_score = 0.0
+    else:
+        clearance_score = min(
+            100.0,
+            (
+                extra_clearance
+                / clearance_range
+            ) * 100.0
+        )
 
     # Examine terrain around the candidate.
     local_radius = 70
@@ -62,21 +86,37 @@ def calculate_site_score(
     y1 = max(0, y - local_radius)
     y2 = min(height, y + local_radius)
 
-    local_region = expanded_hazards[y1:y2, x1:x2]
+    local_region = expanded_hazards[
+        y1:y2,
+        x1:x2
+    ]
 
     if local_region.size == 0:
         local_safety_score = 0.0
     else:
-        hazard_fraction = np.count_nonzero(local_region) / local_region.size
-        local_safety_score = (1.0 - hazard_fraction) * 100.0
+        hazard_fraction = (
+            np.count_nonzero(local_region)
+            / local_region.size
+        )
 
-    # Clearance is the most important factor.
+        local_safety_score = (
+            1.0 - hazard_fraction
+        ) * 100.0
+
+    # Clearance remains the dominant factor.
     score = (
         0.75 * clearance_score
         + 0.25 * local_safety_score
     )
 
-    score = int(round(max(0, min(100, score))))
+    score = int(
+        round(
+            max(
+                0,
+                min(100, score)
+            )
+        )
+    )
 
     if score >= 80:
         risk = "LOW"
@@ -118,10 +158,11 @@ def find_landing_candidates(
             break
 
         score, risk = calculate_site_score(
-            best_point,
-            max_distance,
-            expanded_hazards
-        )
+    best_point,
+    max_distance,
+    expanded_hazards,
+    craft_radius
+)
 
         candidates.append({
             "rank": index + 1,
